@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.webhooks import router as webhooks_router
+from app.api.dashboard import router as dashboard_router
 
 app = FastAPI(
     title="Clutch Engine",
@@ -26,6 +27,9 @@ app.add_middleware(
 # Mount Webhooks router at root and /api/webhooks
 app.include_router(webhooks_router, prefix="/webhooks")
 app.include_router(webhooks_router, prefix="/api/webhooks")
+
+# Mount Merchant Dashboard API router at /api
+app.include_router(dashboard_router, prefix="/api")
 
 
 @app.get("/health")
