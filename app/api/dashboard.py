@@ -7,15 +7,20 @@ Administrative endpoints for:
 - Administrative order hold (ADMIN_HELD) and customer postback handling
 """
 
+import os
+import random
+import uuid
 from typing import List, Optional, Dict, Any
 import logging
 from math import ceil
 
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.models.order import (
     Order,
+    OrderItem,
     OrderStatus,
     DeliveryZone,
     DELIVERY_ZONE_FEES,
@@ -113,6 +118,221 @@ async def list_orders(
         page_size=page_size,
         total_pages=total_pages,
     )
+
+
+# -------------------------------------------------------------------------
+# Mock Seed Data & Simulation Definitions
+# -------------------------------------------------------------------------
+MOCK_BENGALI_ORDERS = [
+    {
+        "order_id": "ORD-MIRPUR-01",
+        "recipient_name": "তানভীর আহমেদ (Tanvir Ahmed)",
+        "recipient_phone": "01712345678",
+        "recipient_address": "বাড়ি ১২, রোড ৫, ব্লক সি, মিরপুর ১০, ঢাকা",
+        "delivery_zone": DeliveryZone.CORE,
+        "delivery_fee": 70.0,
+        "cod_amount": 1370.0,
+        "items": [
+            OrderItem(sku="TSH-BLK-01", name="Premium Cotton Drop-Shoulder Tee (L)", qty=2, price=650.0),
+        ],
+        "status": OrderStatus.PENDING_CONFIRMATION,
+    },
+    {
+        "order_id": "ORD-DHANMONDI-02",
+        "recipient_name": "নুসরাত জাহান (Nusrat Jahan)",
+        "recipient_phone": "01823456789",
+        "recipient_address": "হাউস ৪২, রোড ২৭, ধানমন্ডি, ঢাকা",
+        "delivery_zone": DeliveryZone.CORE,
+        "delivery_fee": 70.0,
+        "cod_amount": 1320.0,
+        "items": [
+            OrderItem(sku="KUR-FLR-02", name="Embroidered Linen Kurti (M)", qty=1, price=1250.0),
+        ],
+        "status": OrderStatus.PENDING_CONFIRMATION,
+    },
+    {
+        "order_id": "ORD-SAVAR-03",
+        "recipient_name": "রাকিবুল হাসান (Rakibul Hasan)",
+        "recipient_phone": "01934567890",
+        "recipient_address": "সিআরপি রোড, সাভার বাসস্ট্যান্ডের বিপরীতে, সাভার",
+        "delivery_zone": DeliveryZone.SUBURB,
+        "delivery_fee": 100.0,
+        "cod_amount": 1650.0,
+        "items": [
+            OrderItem(sku="JNS-SLM-03", name="Vintage Slim Fit Denim Jeans (32)", qty=1, price=1550.0),
+        ],
+        "status": OrderStatus.PENDING_CONFIRMATION,
+    },
+    {
+        "order_id": "ORD-CHITTAGONG-04",
+        "recipient_name": "মেহেদী হাসান (Mehedi Hasan)",
+        "recipient_phone": "01645678901",
+        "recipient_address": "প্লট ৮, জিইসি মোড়, ওআর নিজাম রোড, নাসিরাবাদ, চট্টগ্রাম",
+        "delivery_zone": DeliveryZone.OUTSIDE,
+        "delivery_fee": 130.0,
+        "cod_amount": 1230.0,
+        "items": [
+            OrderItem(sku="POLO-NVY-04", name="Pique Cotton Solid Polo (XL)", qty=2, price=550.0),
+        ],
+        "status": OrderStatus.PROCESSING,
+    },
+    {
+        "order_id": "ORD-BANANI-05",
+        "recipient_name": "ফারহানা করিম (Farhana Karim)",
+        "recipient_phone": "01756789012",
+        "recipient_address": "অ্যাপার্টমেন্ট ৪বি, রোড ১১, ব্লক ডি, বনানী, ঢাকা",
+        "delivery_zone": DeliveryZone.CORE,
+        "delivery_fee": 70.0,
+        "cod_amount": 2570.0,
+        "items": [
+            OrderItem(sku="SRI-JAM-05", name="Dhakai Jamdani Silk Saree", qty=1, price=2500.0),
+        ],
+        "status": OrderStatus.COURIER_DISPATCHED,
+        "consignment_id": "CID-STF-982141",
+        "tracking_code": "STF-98214101",
+    },
+    {
+        "order_id": "ORD-TONGI-06",
+        "recipient_name": "সাদিয়া ইসলাম (Sadia Islam)",
+        "recipient_phone": "01367890123",
+        "recipient_address": "টঙ্গী স্টেশন রোড, গাজীপুর",
+        "delivery_zone": DeliveryZone.SUBURB,
+        "delivery_fee": 100.0,
+        "cod_amount": 1900.0,
+        "items": [
+            OrderItem(sku="BAG-LTH-06", name="Handcrafted Leather Shoulder Bag", qty=1, price=1800.0),
+        ],
+        "status": OrderStatus.ADMIN_HELD,
+    },
+]
+
+DYNAMIC_SIM_CUSTOMERS = [
+    {
+        "name": "আরিফুল ইসলাম (Ariful Islam)",
+        "phone": "01788112233",
+        "address": "বাড়ি ১৬, রোড ৪, সেক্টর ৭, উত্তরা, ঢাকা",
+        "zone": DeliveryZone.CORE,
+        "fee": 70.0,
+        "items": [OrderItem(sku="PAN-SLK-07", name="Semi-fitted Cotton Panjabi (40)", qty=1, price=1450.0)],
+        "cod": 1520.0,
+    },
+    {
+        "name": "শারমিন আক্তার (Sharmin Akter)",
+        "phone": "01944556677",
+        "address": "আশুলিয়া বাজার, কাঠগড়া রোড, সাভার",
+        "zone": DeliveryZone.SUBURB,
+        "fee": 100.0,
+        "items": [OrderItem(sku="HIJ-CHI-08", name="Chiffon Premium Hijab Combo (Pack of 3)", qty=1, price=890.0)],
+        "cod": 990.0,
+    },
+    {
+        "name": "জাহিদ হাসান (Zahid Hasan)",
+        "phone": "01855667788",
+        "address": "জিন্দাবাজার মোড়, কোর্ট রোড, সিলেট",
+        "zone": DeliveryZone.OUTSIDE,
+        "fee": 130.0,
+        "items": [OrderItem(sku="HOO-WNT-09", name="Heavyweight Fleece Hoodie (Navy, L)", qty=1, price=1150.0)],
+        "cod": 1280.0,
+    },
+    {
+        "name": "মাহমুদা বেগম (Mahmuda Begum)",
+        "phone": "01522334455",
+        "address": "মধ্য বাড্ডা, প্রগতি সরণি, গুলশান লিংক রোড, ঢাকা",
+        "zone": DeliveryZone.CORE,
+        "fee": 70.0,
+        "items": [OrderItem(sku="SHO-SNK-10", name="Casual Urban Sneakers (White, 42)", qty=1, price=1850.0)],
+        "cod": 1920.0,
+    },
+    {
+        "name": "কায়সার মাহমুদ (Kaysar Mahmud)",
+        "phone": "01677889900",
+        "address": "চৌরাস্তা মোড়, গাজীপুর সদর, গাজীপুর",
+        "zone": DeliveryZone.SUBURB,
+        "fee": 100.0,
+        "items": [OrderItem(sku="WAT-DIG-11", name="Matte Black Chronograph Watch", qty=1, price=2200.0)],
+        "cod": 2300.0,
+    },
+]
+
+
+@router.get("/metrics")
+async def get_dashboard_metrics():
+    """Summary metrics for the merchant dashboard."""
+    store = get_order_store()
+    with store._lock:
+        orders = list(store._orders.values())
+
+    total_revenue = sum(
+        o.cod_amount for o in orders
+        if o.status in (OrderStatus.COURIER_DISPATCHED, OrderStatus.DELIVERED, OrderStatus.PROCESSING)
+    )
+    pending_count = sum(1 for o in orders if o.status == OrderStatus.PENDING_CONFIRMATION)
+    dispatched_count = sum(1 for o in orders if o.status == OrderStatus.COURIER_DISPATCHED)
+    held_count = sum(1 for o in orders if o.status == OrderStatus.ADMIN_HELD)
+    processing_count = sum(1 for o in orders if o.status == OrderStatus.PROCESSING)
+    delivered_count = sum(1 for o in orders if o.status == OrderStatus.DELIVERED)
+    cancelled_count = sum(1 for o in orders if o.status == OrderStatus.CANCELLED)
+
+    return {
+        "total_revenue": round(total_revenue, 2),
+        "pending_count": pending_count,
+        "dispatched_count": dispatched_count,
+        "held_count": held_count,
+        "processing_count": processing_count,
+        "delivered_count": delivered_count,
+        "cancelled_count": cancelled_count,
+        "total_count": len(orders),
+    }
+
+
+@router.post("/mock-seed")
+async def seed_mock_orders(
+    single: bool = Query(False, description="Generate a single simulated order rather than full demo set")
+):
+    """
+    Seed sample Bengali F-Commerce orders for quick manual testing.
+    - single=false: Seeds a full set of realistic Bangladeshi orders across all zones & statuses.
+    - single=true: Simulates one incoming Bengali customer order.
+    """
+    store = get_order_store()
+
+    if single:
+        pick = random.choice(DYNAMIC_SIM_CUSTOMERS)
+        unique_suffix = uuid.uuid4().hex[:6].upper()
+        order = Order(
+            order_id=f"ORD-SIM-{unique_suffix}",
+            recipient_name=pick["name"],
+            recipient_phone=pick["phone"],
+            recipient_address=pick["address"],
+            delivery_zone=pick["zone"],
+            delivery_fee=pick["fee"],
+            cod_amount=pick["cod"],
+            items=pick["items"],
+            status=OrderStatus.PENDING_CONFIRMATION,
+        )
+        store.save(order)
+        return {
+            "status": "success",
+            "message": f"Simulated order '{order.order_id}' for {order.recipient_name} successfully created.",
+            "order": order,
+        }
+
+    seeded_count = 0
+    created_orders = []
+    for item in MOCK_BENGALI_ORDERS:
+        existing = store.get_by_id(item["order_id"])
+        if not existing:
+            order = Order(**item)
+            store.save(order)
+            created_orders.append(order)
+            seeded_count += 1
+
+    return {
+        "status": "success",
+        "message": f"Seeded {seeded_count} sample Bengali orders.",
+        "count": seeded_count,
+        "total_in_store": store.count(),
+    }
 
 
 @router.get("/{order_id}", response_model=Order)
@@ -297,6 +517,82 @@ async def hold_order(order_id: str, payload: Optional[OrderHoldRequest] = None):
         "order": order,
         "reason": reason,
     }
+
+
+@router.post("/{order_id}/unhold", response_model=Dict[str, Any])
+async def unhold_order(order_id: str):
+    """
+    Resume automated processing from ADMIN_HELD back to PENDING_CONFIRMATION.
+    """
+    store = get_order_store()
+    order = store.get_by_id(order_id)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order '{order_id}' not found",
+        )
+
+    if order.status != OrderStatus.ADMIN_HELD:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Order is in '{order.status.value}', not 'ADMIN_HELD'",
+        )
+
+    try:
+        order.transition_to(OrderStatus.PENDING_CONFIRMATION)
+    except InvalidStateTransitionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    store.save(order)
+    logger.info("Order %s resumed from ADMIN_HELD to PENDING_CONFIRMATION", order_id)
+    return {
+        "status": "success",
+        "message": "Order resumed back to PENDING_CONFIRMATION",
+        "order": order,
+    }
+
+
+@router.get("/{order_id}/invoice")
+async def get_order_invoice(order_id: str):
+    """
+    Download or preview the generated PDF invoice for an order.
+    Dynamically generates the invoice if not already present on disk.
+    """
+    store = get_order_store()
+    order = store.get_by_id(order_id)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order '{order_id}' not found",
+        )
+
+    # If invoice file exists on disk, return it directly
+    if order.invoice_url and os.path.exists(order.invoice_url):
+        return FileResponse(
+            path=order.invoice_url,
+            media_type="application/pdf",
+            filename=f"invoice_{order.order_id}.pdf",
+        )
+
+    # Otherwise generate on the fly
+    try:
+        pdf_path = generate_invoice_pdf(order)
+        order.invoice_url = pdf_path
+        store.save(order)
+        return FileResponse(
+            path=pdf_path,
+            media_type="application/pdf",
+            filename=f"invoice_{order.order_id}.pdf",
+        )
+    except Exception as e:
+        logger.error("Failed to generate invoice on the fly for %s: %s", order_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not generate invoice PDF: {str(e)}",
+        )
 
 
 @router.post("/postbacks/handle", response_model=Dict[str, Any])

@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clutch (ক্ল্যাচ) | Merchant Command Dashboard</title>
+  
+  <!-- Google Fonts: Inter & Hind Siliguri for Bengali -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            obsidian: {
+              950: '#050506',
+              900: '#0A0A0B',
+              850: '#111113',
+              800: '#161619',
+              700: '#1F1F24',
+              border: '#27272A',
+            },
+            brand: {
+              ruby: '#E11D48',
+              crimson: '#EF4444',
+              hover: '#BE123C',
+              glow: 'rgba(225, 29, 72, 0.25)',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'Hind Siliguri', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0A0A0B;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272A;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3F3F46;
+    }
+
+    /* Glow utility */
+    .glow-ruby {
+      box-shadow: 0 0 20px -3px rgba(225, 29, 72, 0.35);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.35);
+    }
+    
+    /* Table row transitions */
+    .table-row-hover {
+      transition: background-color 0.15s ease;
+    }
+    .table-row-hover:hover {
+      background-color: rgba(31, 31, 36, 0.65);
+    }
+
+    /* Toast animation */
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .toast-animate {
+      animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+
+<body class="bg-obsidian-900 text-zinc-100 font-sans min-h-screen antialiased flex flex-col selection:bg-brand-ruby selection:text-white">
+
+  <!-- ===================================================================== -->
+  <!-- Top Global Header & Navigation -->
+  <!-- ===================================================================== -->
+  <header class="sticky top-0 z-40 bg-obsidian-950/90 backdrop-blur-md border-b border-obsidian-border">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo & Branding -->
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-ruby to-rose-700 flex items-center justify-center font-bold text-white shadow-lg glow-ruby text-lg tracking-wider">
+          CL
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl font-extrabold tracking-tight text-white">Clutch</span>
+            <span class="text-lg font-bold text-brand-ruby tracking-normal">ক্ল্যাচ</span>
+            <span class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">v1.0</span>
+          </div>
+          <p class="text-xs text-zinc-400 font-medium hidden sm:block">Automated F-Commerce Order Management Engine</p>
+        </div>
+      </div>
+
+      <!-- Live Engine Status & Controls -->
+      <div class="flex items-center gap-3 sm:gap-4">
+        
+        <!-- Engine Status Pill -->
+        <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/50 border border-emerald-800/60 text-emerald-400 text-xs font-medium">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span class="font-mono tracking-tight">Engine Active</span>
+        </div>
+
+        <!-- Steadfast Courier Gateway Pill -->
+        <div class="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-xs font-mono">
+          <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          <span>Steadfast Sandbox</span>
+        </div>
+
+        <!-- Documentation Link -->
+        <a href="/docs" target="_blank" class="text-xs font-medium text-zinc-400 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-zinc-800 transition">
+          Swagger API &rarr;
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- Main Dashboard Content Container -->
+  <!-- ===================================================================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    <!-- ----------------------------------------------------------------- -->
+    <!-- Metric Summary Cards Row -->
+    <!-- ----------------------------------------------------------------- -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- Card 1: Total COD Pipeline -->
+      <div class="bg-obsidian-850 border border-obsidian-border rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-zinc-700 transition">
+        <div class="absolute -right-4 -top-4 w-24 h-24 bg-brand-ruby/10 rounded-full blur-xl group-hover:bg-brand-ruby/20 transition"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-medium text-zinc-400 uppercase tracking-wider">Total COD Value</span>
+          <div class="p-2 rounded-lg bg-rose-950/60 border border-rose-900/40 text-brand-ruby">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold tracking-tight text-white" id="metric-revenue">৳ 0</span>
+        </div>
+        <p class="text-[11px] text-zinc-500 mt-1">Confirmed + Dispatched collection</p>
+      </div>
+
+      <!-- Card 2: Pending Confirmation -->
+      <div class="bg-obsidian-850 border border-obsidian-border rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-zinc-700 transition">
+        <div class="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-medium text-zinc-400 uppercase tracking-wider">Pending Review</span>
+          <div class="p-2 rounded-lg bg-amber-950/60 border border-amber-900/40 text-amber-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold tracking-tight text-white" id="metric-pending">0</span>
+          <span class="text-xs font-medium text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-900/60">Awaiting Dispatch</span>
+        </div>
+        <p class="text-[11px] text-zinc-500 mt-1">Ready for merchant review</p>
+      </div>
+
+      <!-- Card 3: Dispatched to Steadfast -->
+      <div class="bg-obsidian-850 border border-obsidian-border rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-zinc-700 transition">
+        <div class="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-medium text-zinc-400 uppercase tracking-wider">Dispatched Courier</span>
+          <div class="p-2 rounded-lg bg-emerald-950/60 border border-emerald-900/40 text-emerald-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold tracking-tight text-white" id="metric-dispatched">0</span>
+          <span class="text-xs font-medium text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-900/60">Steadfast Booked</span>
+        </div>
+        <p class="text-[11px] text-zinc-500 mt-1">Consignment + Invoice generated</p>
+      </div>
+
+      <!-- Card 4: Admin Held / Review -->
+      <div class="bg-obsidian-850 border border-obsidian-border rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-zinc-700 transition">
+        <div class="absolute -right-4 -top-4 w-24 h-24 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-medium text-zinc-400 uppercase tracking-wider">Admin Held</span>
+          <div class="p-2 rounded-lg bg-rose-950/60 border border-rose-900/40 text-rose-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold tracking-tight text-white" id="metric-held">0</span>
+          <span class="text-xs font-medium text-rose-400 bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-900/60">Automation Paused</span>
+        </div>
+        <p class="text-[11px] text-zinc-500 mt-1">Takeover / phone conflict</p>
+      </div>
+
+    </section>
+
+    <!-- ----------------------------------------------------------------- -->
+    <!-- Control & Action Toolbar -->
+    <!-- ----------------------------------------------------------------- -->
+    <section class="bg-obsidian-850 border border-obsidian-border rounded-xl p-4 shadow-lg space-y-4">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        
+        <!-- Search Input (Phone / ID / Name) -->
+        <div class="relative flex-1 max-w-md">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input 
+            type="text" 
+            id="search-input"
+            placeholder="Search phone (০১৭... / 017...), Order ID, or Name..."
+            class="w-full pl-9 pr-8 py-2 bg-obsidian-950 border border-zinc-700/80 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-brand-ruby focus:ring-1 focus:ring-brand-ruby transition font-sans"
+            oninput="handleSearch(this.value)"
+          />
+          <button 
+            id="search-clear-btn" 
+            onclick="clearSearch()" 
+            class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-500 hover:text-white transition">
+            &times;
+          </button>
+        </div>
+
+        <!-- Filter Dropdown & Zone Selector -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          
+          <!-- Status Filter Dropdown -->
+          <div class="flex items-center gap-1.5">
+            <label for="status-filter" class="text-xs font-medium text-zinc-400 hidden sm:inline">Status:</label>
+            <select 
+              id="status-filter" 
+              onchange="handleStatusFilter(this.value)"
+              class="bg-obsidian-950 border border-zinc-700 text-xs text-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:border-brand-ruby transition font-medium">
+              <option value="ALL">All Statuses</option>
+              <option value="PENDING_CONFIRMATION">Pending Review</option>
+              <option value="PROCESSING">Processing</option>
+              <option value="COURIER_DISPATCHED">Dispatched</option>
+              <option value="ADMIN_HELD">Admin Held</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+
+          <!-- Zone Filter Dropdown -->
+          <div class="flex items-center gap-1.5">
+            <label for="zone-filter" class="text-xs font-medium text-zinc-400 hidden sm:inline">Zone:</label>
+            <select 
+              id="zone-filter" 
+              onchange="handleZoneFilter(this.value)"
+              class="bg-obsidian-950 border border-zinc-700 text-xs text-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:border-brand-ruby transition font-medium">
+              <option value="ALL">All Zones</option>
+              <option value="CORE">Dhaka Core (৳70)</option>
+              <option value="SUBURB">Dhaka Suburbs (৳100)</option>
+              <option value="OUTSIDE">Outside Dhaka (৳130)</option>
+            </select>
+          </div>
+
+          <!-- Quick Action: Simulate Test Order -->
+          <button 
+            onclick="simulateTestOrder()" 
+            id="simulate-btn"
+            class="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-ruby hover:bg-rose-700 active:bg-rose-800 text-white text-xs font-semibold shadow-md shadow-rose-950 transition glow-ruby">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Simulate Test Order</span>
+          </button>
+
+          <!-- Quick Action: Seed Demo Data -->
+          <button 
+            onclick="seedDemoData()" 
+            title="Populate demo orders across all zones"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 text-xs font-medium transition">
+            <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span class="hidden sm:inline">Seed Demo</span>
+          </button>
+
+          <!-- Refresh Button -->
+          <button 
+            onclick="loadOrders(true)" 
+            id="refresh-btn"
+            title="Refresh order table"
+            class="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white transition">
+            <svg id="refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+
+          <!-- Auto-polling Toggle -->
+          <div class="flex items-center gap-1.5 pl-1 border-l border-zinc-700 text-xs">
+            <button 
+              id="poll-toggle-btn"
+              onclick="toggleAutoPoll()" 
+              class="px-2.5 py-1.5 rounded-lg border text-xs font-mono flex items-center gap-1.5 transition bg-emerald-950/40 text-emerald-400 border-emerald-800/60">
+              <span id="poll-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="poll-label">Live Sync (10s)</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Quick Filter Pills / Tab Bar -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-medium border-t border-obsidian-border/70 pt-3">
+        <span class="text-zinc-500 text-[11px] uppercase tracking-wider pr-1">Views:</span>
+        <button onclick="setTabFilter('ALL')" id="tab-ALL" class="tab-btn px-2.5 py-1 rounded-md bg-zinc-800 text-white font-semibold border border-zinc-700">
+          All Orders (<span id="tab-count-all">0</span>)
+        </button>
+        <button onclick="setTabFilter('PENDING_CONFIRMATION')" id="tab-PENDING_CONFIRMATION" class="tab-btn px-2.5 py-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          Pending (<span id="tab-count-pending">0</span>)
+        </button>
+        <button onclick="setTabFilter('COURIER_DISPATCHED')" id="tab-COURIER_DISPATCHED" class="tab-btn px-2.5 py-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          Dispatched (<span id="tab-count-dispatched">0</span>)
+        </button>
+        <button onclick="setTabFilter('ADMIN_HELD')" id="tab-ADMIN_HELD" class="tab-btn px-2.5 py-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          Admin Held (<span id="tab-count-held">0</span>)
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ----------------------------------------------------------------- -->
+    <!-- Interactive Orders Data Table Section -->
+    <!-- ----------------------------------------------------------------- -->
+    <section class="bg-obsidian-850 border border-obsidian-border rounded-xl shadow-xl overflow-hidden relative">
+      
+      <!-- Top Loading Bar indicator -->
+      <div id="loading-bar" class="h-0.5 w-full bg-brand-ruby/20 overflow-hidden hidden">
+        <div class="w-1/3 h-full bg-brand-ruby animate-pulse"></div>
+      </div>
+
+      <div class="overflow-x-auto min-h-[380px]">
+        <table class="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr class="border-b border-obsidian-border bg-obsidian-950/70 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+              <th scope="col" class="py-3.5 pl-5 pr-3">Order ID & Time</th>
+              <th scope="col" class="px-3 py-3.5">Customer & Destination</th>
+              <th scope="col" class="px-3 py-3.5">Delivery Zone</th>
+              <th scope="col" class="px-3 py-3.5">Items & COD</th>
+              <th scope="col" class="px-3 py-3.5">Status & Tracking</th>
+              <th scope="col" class="py-3.5 pl-3 pr-5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="orders-tbody" class="divide-y divide-obsidian-border/60 text-zinc-200">
+            <!-- Dynamically populated via JavaScript -->
+          </tbody>
+        </table>
+
+        <!-- Empty State Container -->
+        <div id="empty-state" class="hidden py-16 px-4 text-center">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+          </div>
+          <h3 class="text-base font-semibold text-white">No Orders Found</h3>
+          <p class="text-xs text-zinc-400 max-w-sm mx-auto mt-1">There are no orders matching your current query or filter criteria.</p>
+          <div class="mt-5 flex items-center justify-center gap-3">
+            <button onclick="simulateTestOrder()" class="px-4 py-2 rounded-lg bg-brand-ruby hover:bg-rose-700 text-white text-xs font-semibold shadow-md transition">
+              Simulate Test Order
+            </button>
+            <button onclick="seedDemoData()" class="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-medium transition">
+              Populate Demo Orders
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="border-t border-obsidian-border bg-obsidian-950/60 px-5 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-400">
+        <div>
+          Showing <span id="page-count-display" class="font-semibold text-white">0</span> of <span id="total-count-display" class="font-semibold text-white">0</span> orders
+        </div>
+        <div class="flex items-center gap-2">
+          <button 
+            id="prev-page-btn" 
+            onclick="changePage(-1)" 
+            disabled 
+            class="px-2.5 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-700 transition">
+            &larr; Previous
+          </button>
+          <span class="px-2 font-mono text-zinc-300">Page <span id="current-page-num">1</span> / <span id="total-page-num">1</span></span>
+          <button 
+            id="next-page-btn" 
+            onclick="changePage(1)" 
+            disabled 
+            class="px-2.5 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-700 transition">
+            Next &rarr;
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- Slide-Over / Modal: Manual Order Review & Override -->
+  <!-- ===================================================================== -->
+  <div id="override-modal" class="fixed inset-0 z-50 overflow-y-auto hidden">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onclick="closeOverrideModal()"></div>
+
+    <div class="flex min-h-full items-center justify-center p-4">
+      <div class="relative w-full max-w-lg bg-obsidian-950 border border-zinc-700/80 rounded-2xl shadow-2xl p-6 space-y-5 text-zinc-100 z-10 glow-ruby">
+        
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between border-b border-obsidian-border pb-3.5">
+          <div>
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>Edit Order / Override</span>
+              <span id="override-order-id-badge" class="font-mono text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">ORD-XXX</span>
+            </h3>
+            <p class="text-xs text-zinc-400">Modify delivery zone, address, or COD fee before dispatch</p>
+          </div>
+          <button onclick="closeOverrideModal()" class="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Form Body -->
+        <form id="override-form" onsubmit="submitOrderOverride(event)" class="space-y-4">
+          <input type="hidden" id="override-order-id" />
+
+          <!-- Recipient Name -->
+          <div>
+            <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1">Recipient Name</label>
+            <input 
+              type="text" 
+              id="override-name" 
+              required
+              class="w-full px-3 py-2 bg-obsidian-850 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:border-brand-ruby focus:ring-1 focus:ring-brand-ruby transition" 
+            />
+          </div>
+
+          <!-- Recipient Phone -->
+          <div>
+            <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1">
+              Recipient Phone (11 digits, 013-019)
+            </label>
+            <input 
+              type="text" 
+              id="override-phone" 
+              required
+              placeholder="017XXXXXXXX"
+              class="w-full px-3 py-2 bg-obsidian-850 border border-zinc-700 rounded-lg text-sm font-mono text-white focus:outline-none focus:border-brand-ruby focus:ring-1 focus:ring-brand-ruby transition" 
+            />
+            <p class="text-[11px] text-zinc-500 mt-1">Accepts Bengali digits (০-৯) or English numbers.</p>
+          </div>
+
+          <!-- Recipient Address -->
+          <div>
+            <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1">Delivery Address</label>
+            <textarea 
+              id="override-address" 
+              rows="2" 
+              required
+              class="w-full px-3 py-2 bg-obsidian-850 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:border-brand-ruby focus:ring-1 focus:ring-brand-ruby transition font-sans"
+            ></textarea>
+          </div>
+
+          <!-- Delivery Zone & Fee Row -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1">Delivery Zone</label>
+              <select 
+                id="override-zone" 
+                onchange="handleOverrideZoneChange(this.value)"
+                class="w-full px-3 py-2 bg-obsidian-850 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:border-brand-ruby transition">
+                <option value="CORE">Dhaka Core (৳70)</option>
+                <option value="SUBURB">Dhaka Suburbs (৳100)</option>
+                <option value="OUTSIDE">Outside Dhaka (৳130)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1">Delivery Fee (BDT)</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-zinc-500 font-mono">৳</span>
+                <input 
+                  type="number" 
+                  step="1" 
+                  id="override-fee" 
+                  required
+                  oninput="recalcOverrideTotal()"
+                  class="w-full pl-7 pr-3 py-2 bg-obsidian-850 border border-zinc-700 rounded-lg text-sm font-mono text-white focus:outline-none focus:border-brand-ruby transition" 
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- COD Total Amount -->
+          <div>
+            <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1">Total COD Collection Amount (BDT)</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-zinc-500 font-mono">৳</span>
+              <input 
+                type="number" 
+                step="0.5" 
+                id="override-cod" 
+                required
+                class="w-full pl-7 pr-3 py-2 bg-obsidian-850 border border-zinc-700 rounded-lg text-sm font-mono text-white focus:outline-none focus:border-brand-ruby transition font-bold" 
+              />
+            </div>
+            <p class="text-[11px] text-zinc-500 mt-1">Cash amount Steadfast rider must collect at doorstep.</p>
+          </div>
+
+          <!-- Modal Action Buttons -->
+          <div class="pt-3 border-t border-obsidian-border flex items-center justify-end gap-3">
+            <button 
+              type="button" 
+              onclick="closeOverrideModal()" 
+              class="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 text-xs font-medium transition">
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              id="override-save-btn"
+              class="px-5 py-2 rounded-lg bg-brand-ruby hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-950 transition">
+              Save & Update Order
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- Modal: Dispatch Confirmation Prompt -->
+  <!-- ===================================================================== -->
+  <div id="dispatch-modal" class="fixed inset-0 z-50 overflow-y-auto hidden">
+    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm" onclick="closeDispatchModal()"></div>
+    <div class="flex min-h-full items-center justify-center p-4">
+      <div class="relative w-full max-w-md bg-obsidian-950 border border-zinc-700 rounded-2xl shadow-2xl p-6 text-zinc-100 space-y-4">
+        
+        <div class="flex items-start gap-3">
+          <div class="p-2.5 rounded-xl bg-emerald-950 border border-emerald-800 text-emerald-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            </svg>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white">Approve & Dispatch Consignment</h4>
+            <p class="text-xs text-zinc-400 mt-1">
+              Dispatch order <span id="dispatch-modal-order-id" class="font-mono text-emerald-400 font-bold">ORD-XXX</span> to Steadfast Courier?
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-obsidian-850 border border-zinc-800 rounded-xl p-3 text-xs space-y-1.5 text-zinc-300">
+          <div class="flex justify-between">
+            <span class="text-zinc-500">Customer:</span>
+            <span id="dispatch-modal-customer" class="font-medium text-white">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-zinc-500">COD Collection:</span>
+            <span id="dispatch-modal-cod" class="font-mono font-bold text-white">৳ 0</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-zinc-500">Delivery Zone:</span>
+            <span id="dispatch-modal-zone" class="font-medium text-zinc-300">-</span>
+          </div>
+        </div>
+
+        <p class="text-[11px] text-zinc-400">
+          This will issue a live Steadfast consignment booking, generate the official Code128 PDF invoice, and transition status to <b class="text-emerald-400">COURIER_DISPATCHED</b>.
+        </p>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <button 
+            type="button" 
+            onclick="closeDispatchModal()" 
+            class="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium border border-zinc-700 transition">
+            Cancel
+          </button>
+          <button 
+            id="confirm-dispatch-btn" 
+            onclick="executeDispatch()" 
+            class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-950 transition flex items-center gap-1.5">
+            <span id="dispatch-spinner" class="hidden">
+              <svg class="animate-spin w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+            </span>
+            <span id="dispatch-btn-text">Confirm Dispatch</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- Toast Notification Container -->
+  <!-- ===================================================================== -->
+  <div id="toast-container" class="fixed top-20 right-4 sm:right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- ===================================================================== -->
+  <!-- Core Dashboard Application Script (Vanilla ES6) -->
+  <!-- ===================================================================== -->
+  <script>
+    // State Store
+    const state = {
+      orders: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      totalPages: 1,
+      search: '',
+      statusFilter: 'ALL',
+      zoneFilter: 'ALL',
+      autoPoll: true,
+      pollTimer: null,
+      currentPendingDispatchId: null,
+      editingOrder: null,
+    };
+
+    // Delivery Fee Table
+    const ZONE_FEES = {
+      CORE: 70.0,
+      SUBURB: 100.0,
+      OUTSIDE: 130.0,
+    };
+
+    // Bengali Numeral Map
+    const BN_TO_EN = {
+      '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4',
+      '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9'
+    };
+
+    function normalizeBengaliDigits(str) {
+      if (!str) return '';
+      return String(str).replace(/[০-৯]/g, d => BN_TO_EN[d] || d);
+    }
+
+    // -----------------------------------------------------------------------
+    // Initialization
+    // -----------------------------------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      loadMetrics();
+      loadOrders();
+      startAutoPoll();
+    });
+
+    // -----------------------------------------------------------------------
+    // Metrics Fetcher
+    // -----------------------------------------------------------------------
+    async function loadMetrics() {
+      try {
+        const res = await fetch('/api/orders/metrics');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        document.getElementById('metric-revenue').textContent = `৳ ${Number(data.total_revenue || 0).toLocaleString()}`;
+        document.getElementById('metric-pending').textContent = data.pending_count || 0;
+        document.getElementById('metric-dispatched').textContent = data.dispatched_count || 0;
+        document.getElementById('metric-held').textContent = data.held_count || 0;
+
+        // Tab counters
+        document.getElementById('tab-count-all').textContent = data.total_count || 0;
+        document.getElementById('tab-count-pending').textContent = data.pending_count || 0;
+        document.getElementById('tab-count-dispatched').textContent = data.dispatched_count || 0;
+        document.getElementById('tab-count-held').textContent = data.held_count || 0;
+      } catch (err) {
+        console.error('Failed to load metrics:', err);
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Orders Loader
+    // -----------------------------------------------------------------------
+    async function loadOrders(isManualRefresh = false) {
+      const loadingBar = document.getElementById('loading-bar');
+      const refreshIcon = document.getElementById('refresh-icon');
+
+      if (isManualRefresh && refreshIcon) {
+        refreshIcon.classList.add('animate-spin');
+      }
+      loadingBar.classList.remove('hidden');
+
+      try {
+        const params = new URLSearchParams();
+        params.append('page', state.page);
+        params.append('page_size', state.pageSize);
+
+        if (state.statusFilter && state.statusFilter !== 'ALL') {
+          params.append('status', state.statusFilter);
+        }
+        if (state.zoneFilter && state.zoneFilter !== 'ALL') {
+          params.append('zone', state.zoneFilter);
+        }
+        if (state.search && state.search.trim()) {
+          params.append('search', normalizeBengaliDigits(state.search.trim()));
+        }
+
+        const res = await fetch(`/api/orders?${params.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        state.orders = data.orders || [];
+        state.total = data.total || 0;
+        state.totalPages = data.total_pages || 1;
+
+        renderOrdersTable();
+        updatePaginationUI();
+        loadMetrics();
+
+        if (isManualRefresh) {
+          showToast('Dashboard refreshed successfully', 'info');
+        }
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+        showToast('Failed to fetch orders: ' + err.message, 'error');
+      } finally {
+        loadingBar.classList.add('hidden');
+        if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Render Orders Data Table
+    // -----------------------------------------------------------------------
+    function renderOrdersTable() {
+      const tbody = document.getElementById('orders-tbody');
+      const emptyState = document.getElementById('empty-state');
+
+      if (!state.orders || state.orders.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      tbody.innerHTML = state.orders.map(order => createOrderRowHtml(order)).join('');
+    }
+
+    function createOrderRowHtml(order) {
+      // Date formatting
+      const createdDate = order.created_at ? new Date(order.created_at) : new Date();
+      const timeStr = createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const dateStr = createdDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+      // Delivery Zone Badge
+      let zoneBadge = '';
+      if (order.delivery_zone === 'CORE') {
+        zoneBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-950/60 text-indigo-300 border border-indigo-800/60">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> Dhaka Core (৳70)
+        </span>`;
+      } else if (order.delivery_zone === 'SUBURB') {
+        zoneBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-950/60 text-purple-300 border border-purple-800/60">
+          <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> Suburbs (৳100)
+        </span>`;
+      } else {
+        zoneBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-cyan-950/60 text-cyan-300 border border-cyan-800/60">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> Outside Dhaka (৳130)
+        </span>`;
+      }
+
+      // Status Pill
+      let statusPill = '';
+      const st = order.status;
+      if (st === 'COURIER_DISPATCHED') {
+        statusPill = `
+          <div class="space-y-1">
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-700/60">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Dispatched
+            </span>
+            ${order.tracking_code ? `
+              <div class="font-mono text-[11px] text-zinc-400 flex items-center gap-1">
+                <span>STF:</span>
+                <span class="text-zinc-200 select-all font-semibold">${escapeHtml(order.tracking_code)}</span>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      } else if (st === 'PENDING_CONFIRMATION') {
+        statusPill = `
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-950/80 text-amber-400 border border-amber-700/60">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span> Pending Review
+          </span>
+        `;
+      } else if (st === 'ADMIN_HELD') {
+        statusPill = `
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-950/80 text-rose-400 border border-rose-700/60">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Admin Held
+          </span>
+        `;
+      } else if (st === 'PROCESSING') {
+        statusPill = `
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-950/80 text-blue-400 border border-blue-700/60">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-spin"></span> Processing
+          </span>
+        `;
+      } else {
+        statusPill = `
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-800 text-zinc-300 border border-zinc-700">
+            ${escapeHtml(st)}
+          </span>
+        `;
+      }
+
+      // Items summary
+      const itemsCount = (order.items || []).reduce((acc, it) => acc + (it.qty || 1), 0);
+      const itemsTooltip = (order.items || []).map(it => `${it.qty}x ${it.name} (৳${it.price})`).join(', ') || 'No item details';
+
+      // Phone formatting & WhatsApp link
+      const rawPhone = order.recipient_phone || '';
+      const cleanPhone = normalizeBengaliDigits(rawPhone);
+      const waLink = `https://wa.me/88${cleanPhone}`;
+
+      // Actions Render
+      const canApprove = (st === 'PENDING_CONFIRMATION' || st === 'ADMIN_HELD' || st === 'PROCESSING');
+      const canHold = (st !== 'ADMIN_HELD' && st !== 'DELIVERED' && st !== 'CANCELLED');
+      const isHeld = (st === 'ADMIN_HELD');
+      const hasInvoice = (st === 'COURIER_DISPATCHED' || st === 'DELIVERED' || Boolean(order.invoice_url));
+
+      return `
+        <tr class="table-row-hover text-zinc-300">
+          
+          <!-- Order ID & Time -->
+          <td class="py-4 pl-5 pr-3 align-top whitespace-nowrap">
+            <div class="font-mono font-bold text-white text-xs flex items-center gap-1.5">
+              <span>${escapeHtml(order.order_id)}</span>
+              <button onclick="copyToClipboard('${escapeHtml(order.order_id)}')" title="Copy Order ID" class="text-zinc-500 hover:text-zinc-300 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="text-[11px] text-zinc-500 mt-1">
+              ${dateStr} &bull; ${timeStr}
+            </div>
+          </td>
+
+          <!-- Customer & Destination -->
+          <td class="px-3 py-4 align-top max-w-xs">
+            <div class="font-semibold text-white text-xs">${escapeHtml(order.recipient_name)}</div>
+            <div class="flex items-center gap-1.5 text-xs font-mono text-zinc-300 mt-0.5">
+              <span>${escapeHtml(cleanPhone)}</span>
+              <a href="${waLink}" target="_blank" rel="noopener noreferrer" title="Chat on WhatsApp" class="text-emerald-400 hover:text-emerald-300 transition">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.299.144.347.491 1.2.534 1.288.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.2 0.662.589 1.22.771 1.393.858.174.087.275.072.376-.044.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.044.073.044.419-.1.824z"/>
+                </svg>
+              </a>
+            </div>
+            <div class="text-[11px] text-zinc-400 mt-1 line-clamp-2" title="${escapeHtml(order.recipient_address)}">
+              ${escapeHtml(order.recipient_address)}
+            </div>
+          </td>
+
+          <!-- Delivery Zone -->
+          <td class="px-3 py-4 align-top whitespace-nowrap">
+            ${zoneBadge}
+            <div class="text-[11px] text-zinc-500 mt-1 font-mono">
+              Fee: ৳${order.delivery_fee}
+            </div>
+          </td>
+
+          <!-- Items & COD -->
+          <td class="px-3 py-4 align-top whitespace-nowrap">
+            <div class="font-bold text-white font-mono text-sm">
+              ৳ ${Number(order.cod_amount).toLocaleString()}
+            </div>
+            <div class="text-[11px] text-zinc-400 mt-0.5 truncate max-w-[140px]" title="${escapeHtml(itemsTooltip)}">
+              <span class="px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300 font-medium">${itemsCount} item${itemsCount > 1 ? 's' : ''}</span>
+              <span class="text-zinc-500 ml-1">COD</span>
+            </div>
+          </td>
+
+          <!-- Status & Tracking -->
+          <td class="px-3 py-4 align-top whitespace-nowrap">
+            ${statusPill}
+          </td>
+
+          <!-- Actions -->
+          <td class="py-4 pl-3 pr-5 align-top text-right whitespace-nowrap">
+            <div class="flex items-center justify-end gap-1.5">
+              
+              <!-- 1. Approve & Dispatch Button -->
+              ${canApprove ? `
+                <button 
+                  onclick="promptDispatch('${escapeHtml(order.order_id)}')" 
+                  title="Approve & Dispatch to Steadfast"
+                  class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  <span>Dispatch</span>
+                </button>
+              ` : ''}
+
+              <!-- 2. Edit / Override Button -->
+              <button 
+                onclick="openOverrideModal('${escapeHtml(order.order_id)}')" 
+                title="Edit details or override fee"
+                class="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+
+              <!-- 3. Hold / Resume Button -->
+              ${canHold ? `
+                <button 
+                  onclick="toggleHoldOrder('${escapeHtml(order.order_id)}', false)" 
+                  title="Hold order automation"
+                  class="p-1.5 rounded-lg bg-zinc-800 hover:bg-rose-950/70 text-zinc-400 hover:text-rose-400 border border-zinc-700 hover:border-rose-900/60 transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+              ` : ''}
+
+              ${isHeld ? `
+                <button 
+                  onclick="toggleHoldOrder('${escapeHtml(order.order_id)}', true)" 
+                  title="Resume order to Pending"
+                  class="p-1.5 rounded-lg bg-rose-950/60 hover:bg-zinc-800 text-rose-400 hover:text-zinc-300 border border-rose-800/60 transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  </svg>
+                </button>
+              ` : ''}
+
+              <!-- 4. View Invoice Button -->
+              <a 
+                href="/api/orders/${encodeURIComponent(order.order_id)}/invoice" 
+                target="_blank" 
+                title="View Code128 PDF Invoice"
+                class="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition flex items-center">
+                <svg class="w-3.5 h-3.5 text-brand-ruby" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </a>
+
+            </div>
+          </td>
+
+        </tr>
+      `;
+    }
+
+    // -----------------------------------------------------------------------
+    // Dispatch Action & Modal
+    // -----------------------------------------------------------------------
+    function promptDispatch(orderId) {
+      const order = state.orders.find(o => o.order_id === orderId);
+      if (!order) return;
+
+      state.currentPendingDispatchId = orderId;
+      document.getElementById('dispatch-modal-order-id').textContent = order.order_id;
+      document.getElementById('dispatch-modal-customer').textContent = `${order.recipient_name} (${order.recipient_phone})`;
+      document.getElementById('dispatch-modal-cod').textContent = `৳ ${Number(order.cod_amount).toLocaleString()}`;
+      document.getElementById('dispatch-modal-zone').textContent = order.delivery_zone;
+
+      document.getElementById('dispatch-modal').classList.remove('hidden');
+    }
+
+    function closeDispatchModal() {
+      document.getElementById('dispatch-modal').classList.add('hidden');
+      state.currentPendingDispatchId = null;
+    }
+
+    async function executeDispatch() {
+      if (!state.currentPendingDispatchId) return;
+      const orderId = state.currentPendingDispatchId;
+      
+      const btn = document.getElementById('confirm-dispatch-btn');
+      const spinner = document.getElementById('dispatch-spinner');
+      const btnText = document.getElementById('dispatch-btn-text');
+
+      btn.disabled = true;
+      spinner.classList.remove('hidden');
+      btnText.textContent = 'Booking Consignment...';
+
+      try {
+        const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Dispatch failed');
+        }
+
+        closeDispatchModal();
+        showToast(`Dispatched ${orderId}! Tracking: ${data.tracking_code || 'Generated'}`, 'success');
+        
+        // Refresh orders and metrics
+        await loadOrders();
+      } catch (err) {
+        console.error('Dispatch error:', err);
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+        btnText.textContent = 'Confirm Dispatch';
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Hold / Unhold Toggle
+    // -----------------------------------------------------------------------
+    async function toggleHoldOrder(orderId, isCurrentlyHeld) {
+      try {
+        let endpoint = `/api/orders/${encodeURIComponent(orderId)}/hold`;
+        let payload = { reason: 'Merchant manual toggle' };
+
+        if (isCurrentlyHeld) {
+          endpoint = `/api/orders/${encodeURIComponent(orderId)}/unhold`;
+          payload = {};
+        }
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Hold operation failed');
+
+        showToast(isCurrentlyHeld ? `Order ${orderId} resumed` : `Order ${orderId} held`, 'info');
+        await loadOrders();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Edit / Override Modal Logic
+    // -----------------------------------------------------------------------
+    function openOverrideModal(orderId) {
+      const order = state.orders.find(o => o.order_id === orderId);
+      if (!order) return;
+
+      state.editingOrder = order;
+      document.getElementById('override-order-id').value = order.order_id;
+      document.getElementById('override-order-id-badge').textContent = order.order_id;
+      document.getElementById('override-name').value = order.recipient_name;
+      document.getElementById('override-phone').value = order.recipient_phone;
+      document.getElementById('override-address').value = order.recipient_address;
+      document.getElementById('override-zone').value = order.delivery_zone;
+      document.getElementById('override-fee').value = order.delivery_fee;
+      document.getElementById('override-cod').value = order.cod_amount;
+
+      document.getElementById('override-modal').classList.remove('hidden');
+    }
+
+    function closeOverrideModal() {
+      document.getElementById('override-modal').classList.add('hidden');
+      state.editingOrder = null;
+    }
+
+    function handleOverrideZoneChange(newZone) {
+      const feeInput = document.getElementById('override-fee');
+      const suggestedFee = ZONE_FEES[newZone] || 70.0;
+      feeInput.value = suggestedFee;
+      recalcOverrideTotal();
+    }
+
+    function recalcOverrideTotal() {
+      if (!state.editingOrder) return;
+      const order = state.editingOrder;
+      const newFee = parseFloat(document.getElementById('override-fee').value) || 0.0;
+      
+      // Calculate items subtotal
+      const itemsSubtotal = (order.items || []).reduce((acc, it) => acc + (it.price * it.qty), 0);
+      const newTotal = itemsSubtotal > 0 ? (itemsSubtotal + newFee) : (order.cod_amount);
+      
+      document.getElementById('override-cod').value = newTotal;
+    }
+
+    async function submitOrderOverride(e) {
+      e.preventDefault();
+      const orderId = document.getElementById('override-order-id').value;
+      const saveBtn = document.getElementById('override-save-btn');
+
+      const payload = {
+        recipient_name: document.getElementById('override-name').value.trim(),
+        recipient_phone: normalizeBengaliDigits(document.getElementById('override-phone').value.trim()),
+        recipient_address: document.getElementById('override-address').value.trim(),
+        delivery_zone: document.getElementById('override-zone').value,
+        delivery_fee: parseFloat(document.getElementById('override-fee').value),
+        cod_amount: parseFloat(document.getElementById('override-cod').value),
+      };
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+
+      try {
+        const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/override`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Override failed');
+        }
+
+        closeOverrideModal();
+        showToast(`Order ${orderId} updated successfully`, 'success');
+        await loadOrders();
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save & Update Order';
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Simulation & Demo Helpers
+    // -----------------------------------------------------------------------
+    async function simulateTestOrder() {
+      const btn = document.getElementById('simulate-btn');
+      btn.disabled = true;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = `<span class="animate-spin mr-1">&#9696;</span> Simulating...`;
+
+      try {
+        const res = await fetch('/api/orders/mock-seed?single=true', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Simulation failed');
+
+        showToast(`Simulated Order '${data.order?.order_id}' ingested!`, 'success');
+        await loadOrders();
+      } catch (err) {
+        showToast('Simulation error: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
+
+    async function seedDemoData() {
+      try {
+        const res = await fetch('/api/orders/mock-seed?single=false', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to seed');
+
+        showToast(`Seeded ${data.count || 0} sample Bengali orders`, 'success');
+        await loadOrders();
+      } catch (err) {
+        showToast('Seed error: ' + err.message, 'error');
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Search & Filter Handlers
+    // -----------------------------------------------------------------------
+    let searchDebounceTimer = null;
+    function handleSearch(val) {
+      clearTimeout(searchDebounceTimer);
+      const clearBtn = document.getElementById('search-clear-btn');
+      if (val) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+
+      searchDebounceTimer = setTimeout(() => {
+        state.search = val;
+        state.page = 1;
+        loadOrders();
+      }, 250);
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('search-input');
+      input.value = '';
+      document.getElementById('search-clear-btn').classList.add('hidden');
+      state.search = '';
+      state.page = 1;
+      loadOrders();
+    }
+
+    function handleStatusFilter(val) {
+      state.statusFilter = val;
+      state.page = 1;
+      updateActiveTabUI(val);
+      loadOrders();
+    }
+
+    function handleZoneFilter(val) {
+      state.zoneFilter = val;
+      state.page = 1;
+      loadOrders();
+    }
+
+    function setTabFilter(status) {
+      state.statusFilter = status;
+      state.page = 1;
+      document.getElementById('status-filter').value = status;
+      updateActiveTabUI(status);
+      loadOrders();
+    }
+
+    function updateActiveTabUI(activeStatus) {
+      const tabs = ['ALL', 'PENDING_CONFIRMATION', 'COURIER_DISPATCHED', 'ADMIN_HELD'];
+      tabs.forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        if (!el) return;
+        if (t === activeStatus) {
+          el.className = 'tab-btn px-2.5 py-1 rounded-md bg-zinc-800 text-white font-semibold border border-zinc-700';
+        } else {
+          el.className = 'tab-btn px-2.5 py-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition';
+        }
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // Pagination Handlers
+    // -----------------------------------------------------------------------
+    function changePage(delta) {
+      const targetPage = state.page + delta;
+      if (targetPage >= 1 && targetPage <= state.totalPages) {
+        state.page = targetPage;
+        loadOrders();
+      }
+    }
+
+    function updatePaginationUI() {
+      const cur = document.getElementById('current-page-num');
+      const tot = document.getElementById('total-page-num');
+      const pCount = document.getElementById('page-count-display');
+      const tCount = document.getElementById('total-count-display');
+      const prevBtn = document.getElementById('prev-page-btn');
+      const nextBtn = document.getElementById('next-page-btn');
+
+      if (cur) cur.textContent = state.page;
+      if (tot) tot.textContent = state.totalPages;
+      if (pCount) pCount.textContent = state.orders.length;
+      if (tCount) tCount.textContent = state.total;
+
+      if (prevBtn) prevBtn.disabled = state.page <= 1;
+      if (nextBtn) nextBtn.disabled = state.page >= state.totalPages;
+    }
+
+    // -----------------------------------------------------------------------
+    // Auto-Polling Controller
+    // -----------------------------------------------------------------------
+    function startAutoPoll() {
+      if (state.pollTimer) clearInterval(state.pollTimer);
+      state.pollTimer = setInterval(() => {
+        if (state.autoPoll) {
+          loadOrders();
+        }
+      }, 10000);
+    }
+
+    function toggleAutoPoll() {
+      state.autoPoll = !state.autoPoll;
+      const dot = document.getElementById('poll-dot');
+      const label = document.getElementById('poll-label');
+      const btn = document.getElementById('poll-toggle-btn');
+
+      if (state.autoPoll) {
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
+        label.textContent = 'Live Sync (10s)';
+        btn.className = 'px-2.5 py-1.5 rounded-lg border text-xs font-mono flex items-center gap-1.5 transition bg-emerald-950/40 text-emerald-400 border-emerald-800/60';
+        showToast('Live background sync enabled (every 10s)', 'info');
+      } else {
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-zinc-600';
+        label.textContent = 'Sync Paused';
+        btn.className = 'px-2.5 py-1.5 rounded-lg border text-xs font-mono flex items-center gap-1.5 transition bg-zinc-800/60 text-zinc-400 border-zinc-700';
+        showToast('Live sync paused', 'info');
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Toast Notification System
+    // -----------------------------------------------------------------------
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+
+      let borderStyle = 'border-zinc-700 bg-obsidian-950 text-zinc-200';
+      let icon = '';
+
+      if (type === 'success') {
+        borderStyle = 'border-emerald-700/80 bg-obsidian-950 text-white glow-emerald';
+        icon = `<svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+      } else if (type === 'error') {
+        borderStyle = 'border-rose-700/80 bg-obsidian-950 text-white glow-ruby';
+        icon = `<svg class="w-4 h-4 text-brand-ruby flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`;
+      } else {
+        borderStyle = 'border-blue-700/80 bg-obsidian-950 text-white';
+        icon = `<svg class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+      }
+
+      toast.className = `toast-animate pointer-events-auto border rounded-xl p-3.5 shadow-2xl flex items-center gap-3 text-xs font-medium ${borderStyle}`;
+      toast.innerHTML = `
+        ${icon}
+        <span class="flex-1">${escapeHtml(message)}</span>
+        <button onclick="this.parentElement.remove()" class="text-zinc-500 hover:text-white transition">&times;</button>
+      `;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 250);
+      }, 4000);
+    }
+
+    // -----------------------------------------------------------------------
+    // Utilities
+    // -----------------------------------------------------------------------
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(`Copied '${text}' to clipboard`, 'info');
+      }).catch(err => {
+        showToast('Failed to copy to clipboard', 'error');
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+
+</body>
+</html>
+
