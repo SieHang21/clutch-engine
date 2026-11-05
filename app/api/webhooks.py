@@ -69,8 +69,7 @@ def get_verify_token() -> str:
 # GET: Hub Verification Challenge Handlers
 # -------------------------------------------------------------------------
 @router.get("")
-@router.get("/")
-@router.get("/webhooks")
+@router.get("/", include_in_schema=False)
 async def verify_meta_webhook(
     hub_mode: Optional[str] = Query(None, alias="hub.mode"),
     hub_verify_token: Optional[str] = Query(None, alias="hub.verify_token"),
