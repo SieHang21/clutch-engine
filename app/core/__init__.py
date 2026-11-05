@@ -23,6 +23,7 @@ from app.core.sanitizer import (
     ZONE_OUTSIDE_DHAKA,
 )
 from app.core.security import verify_meta_signature
+from app.core.config import settings, Settings
 
 __all__ = [
     "convert_bengali_digits",
@@ -44,4 +45,6 @@ __all__ = [
     "ZONE_SUBURBS",
     "ZONE_OUTSIDE_DHAKA",
     "verify_meta_signature",
+    "settings",
+    "Settings",
 ]

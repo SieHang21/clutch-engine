@@ -1,0 +1,100 @@
+version: "3.8"
+
+# =========================================================================
+# Clutch (ক্ল্যাচ) - Automated F-Commerce Engine Multi-Service Stack
+# Defines:
+#  - api: FastAPI ingestion & merchant dashboard
+#  - redis: Redis alpine container for session debounce & takeover mutes
+#  - worker: Background consumer for courier dispatch & PDF generation
+# =========================================================================
+
+services:
+  # -----------------------------------------------------------------------
+  # Redis Cache & Debounce Buffer
+  # -----------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: clutch_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - clutch_network
+
+  # -----------------------------------------------------------------------
+  # FastAPI Application Server (Ingestion & Merchant Console)
+  # -----------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clutch_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - API_PORT=8000
+      - REDIS_URL=redis://redis:6379/0
+      - META_VERIFY_TOKEN=${META_VERIFY_TOKEN:-clutch_verify_token}
+      - META_APP_SECRET=${META_APP_SECRET:-clutch_dev_secret}
+      - WHATSAPP_API_TOKEN=${WHATSAPP_API_TOKEN:-test_whatsapp_token}
+      - STEADFAST_API_KEY=${STEADFAST_API_KEY:-test}
+      - STEADFAST_SECRET_KEY=${STEADFAST_SECRET_KEY:-test}
+      - STEADFAST_BASE_URL=${STEADFAST_BASE_URL:-https://portal.steadfast.com.bd/api/v1}
+      - INVOICE_DIR=/app/invoices
+      - BRAND_NAME=${BRAND_NAME:-Clutch Fashion}
+    volumes:
+      - invoice_data:/app/invoices
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - clutch_network
+
+  # -----------------------------------------------------------------------
+  # Background Task Worker (Courier Dispatch & Invoice Generation)
+  # -----------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clutch_worker
+    restart: unless-stopped
+    command: python -m app.workers.dispatch_worker
+    environment:
+      - ENVIRONMENT=production
+      - REDIS_URL=redis://redis:6379/0
+      - STEADFAST_API_KEY=${STEADFAST_API_KEY:-test}
+      - STEADFAST_SECRET_KEY=${STEADFAST_SECRET_KEY:-test}
+      - STEADFAST_BASE_URL=${STEADFAST_BASE_URL:-https://portal.steadfast.com.bd/api/v1}
+      - INVOICE_DIR=/app/invoices
+      - BRAND_NAME=${BRAND_NAME:-Clutch Fashion}
+    volumes:
+      - invoice_data:/app/invoices
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks:
+      - clutch_network
+
+volumes:
+  redis_data:
+    driver: local
+  invoice_data:
+    driver: local
+
+networks:
+  clutch_network:
+    driver: bridge
+

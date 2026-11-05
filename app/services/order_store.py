@@ -115,4 +115,16 @@ class OrderStore:
 
 # Global default order repository instance
 default_order_store = OrderStore()
+_active_order_store: OrderStore = default_order_store
+
+
+def get_order_store() -> OrderStore:
+    """Get the active order repository."""
+    return _active_order_store
+
+
+def set_order_store(store: OrderStore) -> None:
+    """Override the active order repository (e.g. for test isolation)."""
+    global _active_order_store
+    _active_order_store = store
 

@@ -17,6 +17,9 @@ from fastapi.responses import PlainTextResponse
 
 from app.core.security import verify_meta_signature
 from app.services.session_buffer import default_session_buffer, SessionBuffer
+from app.models.order import Order, OrderItem, OrderStatus, DeliveryZone
+from app.services.order_store import get_order_store
+from app.services.customer_notifier import default_customer_notifier
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +203,48 @@ async def receive_meta_webhook(
                     text=message_text,
                     page_id=page_id,
                 )
+
+                created_order_id = None
+                if buffer_result.get("is_complete") and buffer_result.get("order"):
+                    order_info = buffer_result["order"]
+                    clean_phone = order_info.get("clean_phone")
+
+                    # If valid unambiguous phone was extracted, generate order in PENDING_CONFIRMATION
+                    if clean_phone and not order_info.get("has_phone_conflict"):
+                        zone_str = order_info.get("zone", "CORE")
+                        try:
+                            parsed_zone = DeliveryZone(zone_str)
+                        except ValueError:
+                            parsed_zone = DeliveryZone.CORE
+
+                        fee_val = float(order_info.get("fee", 70.0))
+                        combined_addr = buffer_result.get("combined_text", "")
+
+                        order_obj = Order(
+                            recipient_name=f"Customer {sender_id[-4:] if len(sender_id) >= 4 else sender_id}",
+                            recipient_phone=clean_phone,
+                            recipient_address=combined_addr,
+                            delivery_zone=parsed_zone,
+                            delivery_fee=fee_val,
+                            cod_amount=round(1200.0 + fee_val, 2),
+                            items=[
+                                OrderItem(sku="CLUTCH-APP-01", name="F-Commerce Apparel", qty=1, price=1200.0)
+                            ],
+                            status=OrderStatus.PENDING_CONFIRMATION,
+                        )
+
+                        get_order_store().save(order_obj)
+                        created_order_id = order_obj.order_id
+
+                        # Dispatch automated confirmation notification
+                        try:
+                            await default_customer_notifier.send_messenger_confirmation(
+                                order_obj,
+                                recipient_id=sender_id,
+                            )
+                        except Exception as notif_err:
+                            logger.warning("Could not dispatch customer notification: %s", notif_err)
+
                 processed_events.append({
                     "type": "customer_message",
                     "sender_id": sender_id,
@@ -207,6 +252,7 @@ async def receive_meta_webhook(
                     "action": "buffered",
                     "message_count": buffer_result["message_count"],
                     "is_complete": buffer_result["is_complete"],
+                    "order_id": created_order_id,
                 })
 
     # Return HTTP 200 OK to acknowledge receipt to Meta Graph API

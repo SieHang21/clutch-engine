@@ -21,7 +21,7 @@ from app.models.order import (
     DELIVERY_ZONE_FEES,
     InvalidStateTransitionError,
 )
-from app.services.order_store import default_order_store, OrderStore
+from app.services.order_store import default_order_store, OrderStore, get_order_store, set_order_store
 from app.services.courier_steadfast import default_courier_service, SteadfastCourierService
 from app.services.invoice_generator import generate_invoice_pdf
 from app.services.customer_notifier import default_customer_notifier, CustomerNotifierService
@@ -31,18 +31,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/orders", tags=["dashboard"])
 
 # Module service references (injectable for testing)
-_active_order_store: OrderStore = default_order_store
 _active_courier_service: SteadfastCourierService = default_courier_service
 _active_notifier: CustomerNotifierService = default_customer_notifier
-
-
-def get_order_store() -> OrderStore:
-    return _active_order_store
-
-
-def set_order_store(store: OrderStore) -> None:
-    global _active_order_store
-    _active_order_store = store
 
 
 def get_courier_service() -> SteadfastCourierService:
