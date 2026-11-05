@@ -12,7 +12,7 @@ from app.api.dashboard import router as dashboard_router
 app = FastAPI(
     title="Clutch Engine",
     description="Automated F-Commerce Order Management Engine for Bangladesh",
-    version="0.1.0",
+    version="1.0.0",
 )
 
 # CORS configuration
@@ -23,6 +23,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+def read_root():
+    return {
+        "service": "Clutch Engine",
+        "status": "online",
+        "docs_url": "/docs",
+        "version": "1.0.0",
+    }
 
 # Mount Webhooks router at root and /api/webhooks
 app.include_router(webhooks_router, prefix="/webhooks")
