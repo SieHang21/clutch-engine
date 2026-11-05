@@ -5,6 +5,7 @@ Administrative endpoints for:
 - Manual order review and field override (zone, fee, COD total, address)
 - Single-tap automated courier dispatch (Steadfast Courier API consignment + PDF invoice generation)
 - Administrative order hold (ADMIN_HELD) and customer postback handling
+Backed by SQLite persistence via SQLModel / SQLAlchemy Session dependency.
 """
 
 import os
@@ -13,10 +14,12 @@ import uuid
 from typing import List, Optional, Dict, Any
 import logging
 from math import ceil
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, Depends
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 from app.models.order import (
     Order,
@@ -26,6 +29,7 @@ from app.models.order import (
     DELIVERY_ZONE_FEES,
     InvalidStateTransitionError,
 )
+from app.db.session import get_db
 from app.services.order_store import default_order_store, OrderStore, get_order_store, set_order_store
 from app.services.courier_steadfast import default_courier_service, SteadfastCourierService
 from app.services.invoice_generator import generate_invoice_pdf
@@ -33,7 +37,7 @@ from app.services.customer_notifier import default_customer_notifier, CustomerNo
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/orders", tags=["dashboard"])
+router = APIRouter(tags=["dashboard"])
 
 # Module service references (injectable for testing)
 _active_courier_service: SteadfastCourierService = default_courier_service
@@ -84,40 +88,6 @@ class OrderApprovalResponse(BaseModel):
     consignment_id: Optional[str]
     tracking_code: Optional[str]
     invoice_url: Optional[str]
-
-
-# -------------------------------------------------------------------------
-# Endpoints
-# -------------------------------------------------------------------------
-@router.get("", response_model=PaginatedOrdersResponse)
-@router.get("/", response_model=PaginatedOrdersResponse)
-async def list_orders(
-    status_filter: Optional[OrderStatus] = Query(None, alias="status", description="Filter by OrderStatus"),
-    search: Optional[str] = Query(None, description="Search by phone, order_id, consignment_id, tracking_code, or name"),
-    zone: Optional[DeliveryZone] = Query(None, description="Filter by DeliveryZone"),
-    page: int = Query(1, ge=1, description="1-indexed page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-):
-    """
-    Query orders with multi-criteria filtering, search, and pagination.
-    """
-    store = get_order_store()
-    orders, total = store.list_orders(
-        status=status_filter,
-        search=search,
-        zone=zone,
-        page=page,
-        page_size=page_size,
-    )
-    total_pages = ceil(total / page_size) if total > 0 else 1
-
-    return PaginatedOrdersResponse(
-        orders=orders,
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages,
-    )
 
 
 # -------------------------------------------------------------------------
@@ -255,12 +225,72 @@ DYNAMIC_SIM_CUSTOMERS = [
 ]
 
 
+# -------------------------------------------------------------------------
+# Endpoints
+# -------------------------------------------------------------------------
+@router.get("", response_model=PaginatedOrdersResponse)
+@router.get("/", response_model=PaginatedOrdersResponse, include_in_schema=False)
+async def list_orders(
+    status_filter: Optional[OrderStatus] = Query(None, alias="status", description="Filter by OrderStatus"),
+    search: Optional[str] = Query(None, description="Search by phone, order_id, consignment_id, tracking_code, or name"),
+    zone: Optional[DeliveryZone] = Query(None, description="Filter by DeliveryZone"),
+    page: int = Query(1, ge=1, description="1-indexed page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    db: Session = Depends(get_db),
+):
+    """
+    Query orders from SQLite database with status filtering, multi-field search, and pagination.
+    """
+    statement = select(Order)
+    if status_filter is not None:
+        statement = statement.where(Order.status == status_filter)
+    if zone is not None:
+        statement = statement.where(Order.delivery_zone == zone)
+
+    matched: List[Order] = list(db.exec(statement).all())
+
+    # Filter by search query across phone, order_id, name, consignment_id, tracking_code
+    if search and search.strip():
+        q = search.strip().lower()
+        filtered = []
+        for o in matched:
+            phone_match = q in o.recipient_phone.lower()
+            order_id_match = q in o.order_id.lower()
+            name_match = q in o.recipient_name.lower()
+            cid_match = bool(o.consignment_id and q in o.consignment_id.lower())
+            track_match = bool(o.tracking_code and q in o.tracking_code.lower())
+
+            if phone_match or order_id_match or name_match or cid_match or track_match:
+                filtered.append(o)
+        matched = filtered
+
+    # Sort descending by creation date
+    matched.sort(
+        key=lambda o: o.created_at if o.created_at else datetime.min,
+        reverse=True,
+    )
+
+    total = len(matched)
+    total_pages = ceil(total / page_size) if total > 0 else 1
+    page = max(1, page)
+    page_size = max(1, page_size)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    paged = matched[start_idx:end_idx]
+
+    return PaginatedOrdersResponse(
+        orders=paged,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
 @router.get("/metrics")
-async def get_dashboard_metrics():
-    """Summary metrics for the merchant dashboard."""
-    store = get_order_store()
-    with store._lock:
-        orders = list(store._orders.values())
+async def get_dashboard_metrics(db: Session = Depends(get_db)):
+    """Summary metrics calculated from SQLite database for the merchant dashboard."""
+    orders = list(db.exec(select(Order)).all())
 
     total_revenue = sum(
         o.cod_amount for o in orders
@@ -287,15 +317,12 @@ async def get_dashboard_metrics():
 
 @router.post("/mock-seed")
 async def seed_mock_orders(
-    single: bool = Query(False, description="Generate a single simulated order rather than full demo set")
+    single: bool = Query(False, description="Generate a single simulated order rather than full demo set"),
+    db: Session = Depends(get_db),
 ):
     """
-    Seed sample Bengali F-Commerce orders for quick manual testing.
-    - single=false: Seeds a full set of realistic Bangladeshi orders across all zones & statuses.
-    - single=true: Simulates one incoming Bengali customer order.
+    Seed sample Bengali F-Commerce orders directly into clutch.db.
     """
-    store = get_order_store()
-
     if single:
         pick = random.choice(DYNAMIC_SIM_CUSTOMERS)
         unique_suffix = uuid.uuid4().hex[:6].upper()
@@ -310,7 +337,9 @@ async def seed_mock_orders(
             items=pick["items"],
             status=OrderStatus.PENDING_CONFIRMATION,
         )
-        store.save(order)
+        db.add(order)
+        db.commit()
+        db.refresh(order)
         return {
             "status": "success",
             "message": f"Simulated order '{order.order_id}' for {order.recipient_name} successfully created.",
@@ -318,28 +347,27 @@ async def seed_mock_orders(
         }
 
     seeded_count = 0
-    created_orders = []
     for item in MOCK_BENGALI_ORDERS:
-        existing = store.get_by_id(item["order_id"])
+        existing = db.get(Order, item["order_id"])
         if not existing:
             order = Order(**item)
-            store.save(order)
-            created_orders.append(order)
+            db.add(order)
             seeded_count += 1
+    db.commit()
 
+    total = len(db.exec(select(Order)).all())
     return {
         "status": "success",
         "message": f"Seeded {seeded_count} sample Bengali orders.",
         "count": seeded_count,
-        "total_in_store": store.count(),
+        "total_in_store": total,
     }
 
 
 @router.get("/{order_id}", response_model=Order)
-async def get_order_by_id(order_id: str):
-    """Fetch details of a single order."""
-    store = get_order_store()
-    order = store.get_by_id(order_id)
+async def get_order_by_id(order_id: str, db: Session = Depends(get_db)):
+    """Fetch details of a single order from SQLite."""
+    order = db.get(Order, order_id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -349,22 +377,22 @@ async def get_order_by_id(order_id: str):
 
 
 @router.post("", response_model=Order, status_code=status.HTTP_201_CREATED)
-@router.post("/", response_model=Order, status_code=status.HTTP_201_CREATED)
-async def create_order(order: Order):
-    """Manually insert a new order."""
-    store = get_order_store()
-    store.save(order)
+@router.post("/", response_model=Order, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+async def create_order(order: Order, db: Session = Depends(get_db)):
+    """Manually insert a new order into clutch.db."""
+    db.add(order)
+    db.commit()
+    db.refresh(order)
     return order
 
 
 @router.post("/{order_id}/override", response_model=Order)
-async def override_order(order_id: str, payload: OrderOverrideRequest):
+async def override_order(order_id: str, payload: OrderOverrideRequest, db: Session = Depends(get_db)):
     """
     Manual Order Review Override:
-    Allows merchant to adjust zone, fee, COD total, or customer address before dispatch.
+    Adjust zone, fee, COD total, or customer address before dispatch.
     """
-    store = get_order_store()
-    order = store.get_by_id(order_id)
+    order = db.get(Order, order_id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -381,7 +409,6 @@ async def override_order(order_id: str, payload: OrderOverrideRequest):
     # 1. Update Zone & Fee
     if payload.delivery_zone is not None:
         order.delivery_zone = payload.delivery_zone
-        # Auto-update fee if not explicitly passed
         if payload.delivery_fee is None:
             order.delivery_fee = DELIVERY_ZONE_FEES.get(payload.delivery_zone, order.delivery_fee)
 
@@ -392,7 +419,6 @@ async def override_order(order_id: str, payload: OrderOverrideRequest):
     if payload.cod_amount is not None:
         order.cod_amount = payload.cod_amount
     elif (payload.delivery_fee is not None or payload.delivery_zone is not None) and order.items:
-        # Recompute COD = items subtotal + delivery fee if fee or zone changed
         order.cod_amount = order.calculate_expected_total()
 
     # 3. Update Contact Details
@@ -403,17 +429,18 @@ async def override_order(order_id: str, payload: OrderOverrideRequest):
         order.recipient_name = payload.recipient_name
 
     if payload.recipient_phone is not None:
-        # Will trigger Pydantic validation if invalid
         order.recipient_phone = Order.validate_and_normalize_phone(payload.recipient_phone)
 
-    # Save changes
-    store.save(order)
-    logger.info("Order %s updated via merchant override.", order_id)
+    order.updated_at = datetime.now(timezone.utc)
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    logger.info("Order %s updated via merchant override in clutch.db.", order_id)
     return order
 
 
 @router.post("/{order_id}/approve", response_model=OrderApprovalResponse)
-async def approve_and_dispatch_order(order_id: str):
+async def approve_and_dispatch_order(order_id: str, db: Session = Depends(get_db)):
     """
     Approve order review:
     1. Advances state from PENDING_CONFIRMATION / ADMIN_HELD to PROCESSING
@@ -421,10 +448,8 @@ async def approve_and_dispatch_order(order_id: str):
     3. Generates the PDF Invoice with Code128 tracking barcode
     4. Transitions order status to COURIER_DISPATCHED
     """
-    store = get_order_store()
     courier = get_courier_service()
-
-    order = store.get_by_id(order_id)
+    order = db.get(Order, order_id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -448,9 +473,7 @@ async def approve_and_dispatch_order(order_id: str):
         )
 
     # Advance state machine
-    if order.status == OrderStatus.ADMIN_HELD and order.can_transition_to(OrderStatus.PROCESSING):
-        order.transition_to(OrderStatus.PROCESSING)
-    elif order.status == OrderStatus.PENDING_CONFIRMATION and order.can_transition_to(OrderStatus.PROCESSING):
+    if order.status in (OrderStatus.ADMIN_HELD, OrderStatus.PENDING_CONFIRMATION) and order.can_transition_to(OrderStatus.PROCESSING):
         order.transition_to(OrderStatus.PROCESSING)
 
     # 1. Dispatch with Steadfast Courier
@@ -470,8 +493,9 @@ async def approve_and_dispatch_order(order_id: str):
         logger.error("Invoice generation failed for order %s: %s", order_id, e)
         invoice_path = None
 
-    # Save final state in repository
-    store.save(order)
+    db.add(order)
+    db.commit()
+    db.refresh(order)
     logger.info("Order %s approved and dispatched with Steadfast (CID: %s, Tracking: %s)",
                 order.order_id, order.consignment_id, order.tracking_code)
 
@@ -486,12 +510,11 @@ async def approve_and_dispatch_order(order_id: str):
 
 
 @router.post("/{order_id}/hold", response_model=Dict[str, Any])
-async def hold_order(order_id: str, payload: Optional[OrderHoldRequest] = None):
+async def hold_order(order_id: str, payload: Optional[OrderHoldRequest] = None, db: Session = Depends(get_db)):
     """
     Pause automated processing and place order on ADMIN_HELD.
     """
-    store = get_order_store()
-    order = store.get_by_id(order_id)
+    order = db.get(Order, order_id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -508,7 +531,9 @@ async def hold_order(order_id: str, payload: Optional[OrderHoldRequest] = None):
             detail=str(e),
         )
 
-    store.save(order)
+    db.add(order)
+    db.commit()
+    db.refresh(order)
     logger.info("Order %s placed on ADMIN_HELD. Reason: %s", order_id, reason)
 
     return {
@@ -520,12 +545,11 @@ async def hold_order(order_id: str, payload: Optional[OrderHoldRequest] = None):
 
 
 @router.post("/{order_id}/unhold", response_model=Dict[str, Any])
-async def unhold_order(order_id: str):
+async def unhold_order(order_id: str, db: Session = Depends(get_db)):
     """
     Resume automated processing from ADMIN_HELD back to PENDING_CONFIRMATION.
     """
-    store = get_order_store()
-    order = store.get_by_id(order_id)
+    order = db.get(Order, order_id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -546,7 +570,9 @@ async def unhold_order(order_id: str):
             detail=str(e),
         )
 
-    store.save(order)
+    db.add(order)
+    db.commit()
+    db.refresh(order)
     logger.info("Order %s resumed from ADMIN_HELD to PENDING_CONFIRMATION", order_id)
     return {
         "status": "success",
@@ -556,13 +582,12 @@ async def unhold_order(order_id: str):
 
 
 @router.get("/{order_id}/invoice")
-async def get_order_invoice(order_id: str):
+async def get_order_invoice(order_id: str, db: Session = Depends(get_db)):
     """
     Download or preview the generated PDF invoice for an order.
     Dynamically generates the invoice if not already present on disk.
     """
-    store = get_order_store()
-    order = store.get_by_id(order_id)
+    order = db.get(Order, order_id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -581,7 +606,9 @@ async def get_order_invoice(order_id: str):
     try:
         pdf_path = generate_invoice_pdf(order)
         order.invoice_url = pdf_path
-        store.save(order)
+        db.add(order)
+        db.commit()
+        db.refresh(order)
         return FileResponse(
             path=pdf_path,
             media_type="application/pdf",

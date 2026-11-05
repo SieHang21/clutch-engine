@@ -1,6 +1,7 @@
 """
-Clutch (ক্ল্যাচ) - Order Domain Model & State Machine
-Pydantic v2 schemas for order lifecycle, items, delivery zones, and strict transition enforcement.
+Clutch (ক্ল্যাচ) - Order Domain Model & SQLite Database Schema
+SQLModel table representation for order lifecycle, items, delivery zones, and strict transition enforcement.
+Persisted in SQLite database (clutch.db) while preserving full Pydantic v2 validation semantics.
 """
 
 from enum import Enum
@@ -8,8 +9,13 @@ from typing import List, Optional, Union, Dict, Any, Set
 from datetime import datetime, timezone
 import uuid
 import re
+import json
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, field_validator, ValidationError
+from pydantic_core import PydanticCustomError, InitErrorDetails
+from sqlmodel import SQLModel, Field
+from sqlalchemy import Column
+from sqlalchemy.types import TypeDecorator, Text
 
 
 # -------------------------------------------------------------------------
@@ -91,17 +97,45 @@ class OrderItem(BaseModel):
         return round(float(self.price * self.qty), 2)
 
 
+class OrderItemListType(TypeDecorator):
+    """SQLAlchemy TypeDecorator serializing List[OrderItem] to JSON Text in SQLite."""
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return "[]"
+        if isinstance(value, list):
+            dumped = [it.model_dump() if isinstance(it, BaseModel) else dict(it) for it in value]
+            return json.dumps(dumped)
+        return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        if not value:
+            return []
+        try:
+            data = json.loads(value)
+            if isinstance(data, list):
+                return [OrderItem(**it) if isinstance(it, dict) else it for it in data]
+        except Exception:
+            return []
+        return []
+
+
 # -------------------------------------------------------------------------
-# Order Model
+# Order Table & Domain Model
 # -------------------------------------------------------------------------
-class Order(BaseModel):
+class Order(SQLModel, table=True):
     """
-    Core Order aggregate model representing an F-Commerce customer order.
-    Enforces validated 11-digit Bangladeshi mobile number, zone classification,
-    and lifecycle state machine transitions.
+    Core Order aggregate model and SQLite table schema.
+    Stores recipient contact details, zone classification, items JSON,
+    and enforces lifecycle state transitions.
     """
+    __tablename__ = "orders"
+
     order_id: str = Field(
         default_factory=lambda: f"ORD-{uuid.uuid4().hex[:8].upper()}",
+        primary_key=True,
         description="Unique order identifier"
     )
     recipient_name: str = Field(..., min_length=1, description="Recipient customer full name")
@@ -110,7 +144,11 @@ class Order(BaseModel):
     delivery_zone: DeliveryZone = Field(default=DeliveryZone.CORE, description="CORE / SUBURB / OUTSIDE")
     delivery_fee: float = Field(default=70.0, ge=0.0, description="Delivery fee in BDT")
     cod_amount: float = Field(..., ge=0.0, description="Total Cash on Delivery collection amount in BDT")
-    items: List[OrderItem] = Field(default_factory=list, description="Itemized product list")
+    items: List[OrderItem] = Field(
+        default_factory=list,
+        sa_column=Column("items", OrderItemListType),
+        description="Itemized product list"
+    )
     consignment_id: Optional[str] = Field(default=None, description="Steadfast courier consignment ID")
     tracking_code: Optional[str] = Field(default=None, description="Steadfast courier tracking code")
     invoice_url: Optional[str] = Field(default=None, description="Filesystem path or URL to PDF invoice")
@@ -119,9 +157,8 @@ class Order(BaseModel):
     updated_at: Optional[datetime] = Field(default=None, description="Last modification timestamp")
 
     # ---------------------------------------------------------------------
-    # Validators
+    # Normalizers & Validators
     # ---------------------------------------------------------------------
-    @field_validator("recipient_phone")
     @classmethod
     def validate_and_normalize_phone(cls, v: str) -> str:
         """
@@ -151,7 +188,6 @@ class Order(BaseModel):
 
         return cleaned
 
-    @field_validator("delivery_zone", mode="before")
     @classmethod
     def parse_delivery_zone(cls, v: Any) -> DeliveryZone:
         """Allow flexible zone naming (CORE, Inside Dhaka, Dhaka Core, Suburbs, etc.)."""
@@ -166,6 +202,46 @@ class Order(BaseModel):
             if normalized in ("OUTSIDE", "OUTSIDE DHAKA", "OUTSIDE_DHAKA"):
                 return DeliveryZone.OUTSIDE
         raise ValueError(f"Unknown delivery zone: {v}. Must be CORE, SUBURB, or OUTSIDE.")
+
+    @field_validator("recipient_phone")
+    @classmethod
+    def _validate_phone_pydantic(cls, v: str) -> str:
+        return cls.validate_and_normalize_phone(v)
+
+    @field_validator("delivery_zone", mode="before")
+    @classmethod
+    def _parse_zone_pydantic(cls, v: Any) -> DeliveryZone:
+        return cls.parse_delivery_zone(v)
+
+    def __init__(self, **data):
+        if "recipient_phone" in data:
+            try:
+                data["recipient_phone"] = self.validate_and_normalize_phone(data["recipient_phone"])
+            except ValueError as e:
+                err = InitErrorDetails(
+                    type=PydanticCustomError("value_error", str(e)),
+                    loc=("recipient_phone",),
+                    input=data.get("recipient_phone"),
+                )
+                raise ValidationError.from_exception_data(self.__class__.__name__, [err]) from e
+
+        if "delivery_zone" in data:
+            try:
+                data["delivery_zone"] = self.parse_delivery_zone(data["delivery_zone"])
+            except ValueError as e:
+                err = InitErrorDetails(
+                    type=PydanticCustomError("value_error", str(e)),
+                    loc=("delivery_zone",),
+                    input=data.get("delivery_zone"),
+                )
+                raise ValidationError.from_exception_data(self.__class__.__name__, [err]) from e
+
+        if "items" in data and isinstance(data["items"], list):
+            data["items"] = [
+                OrderItem(**it) if isinstance(it, dict) else it
+                for it in data["items"]
+            ]
+        super().__init__(**data)
 
     # ---------------------------------------------------------------------
     # State Machine Methods

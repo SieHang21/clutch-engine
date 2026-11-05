@@ -8,4 +8,9 @@ htmlcov/
 .venv
 env/
 venv/
+invoices/*.pdf
+!invoices/.gitkeep
+*.db
+*.sqlite
+*.sqlite3
 

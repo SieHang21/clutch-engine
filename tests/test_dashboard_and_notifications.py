@@ -440,3 +440,86 @@ class TestCustomerPostbackHandling:
         with pytest.raises(ValueError):
             await notifier.handle_postback("INVALID_PAYLOAD_WITHOUT_COLON")
 
+
+class TestMerchantDashboardUIAndHelpers:
+    """Tests for HTML Dashboard serving, metrics summary, mock seeding, and invoice endpoints."""
+
+    def test_serve_dashboard_html(self, client):
+        """Ensure GET /dashboard serves the responsive Tailwind merchant dashboard."""
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        assert "text/html" in response.headers.get("content-type", "")
+        body = response.text
+        assert "Clutch" in body
+        assert "ক্ল্যাচ" in body
+        assert "Engine Active" in body
+        assert "Simulate Test Order" in body
+        assert "Steadfast" in body
+
+    def test_dashboard_metrics_endpoint(self, client, isolated_order_store):
+        """Ensure GET /api/orders/metrics returns accurate pipeline calculations."""
+        # Seed 3 orders
+        o1 = create_sample_order("ORD-MET-01", status=OrderStatus.PENDING_CONFIRMATION, cod=1000.0)
+        o2 = create_sample_order("ORD-MET-02", status=OrderStatus.COURIER_DISPATCHED, cod=2500.0)
+        o3 = create_sample_order("ORD-MET-03", status=OrderStatus.ADMIN_HELD, cod=1500.0)
+        isolated_order_store.save(o1)
+        isolated_order_store.save(o2)
+        isolated_order_store.save(o3)
+
+        res = client.get("/api/orders/metrics")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["total_count"] == 3
+        assert data["pending_count"] == 1
+        assert data["dispatched_count"] == 1
+        assert data["held_count"] == 1
+        assert data["total_revenue"] == 2500.0
+
+    def test_mock_seed_endpoints(self, client, isolated_order_store):
+        """Ensure POST /api/orders/mock-seed populates sample Bengali orders."""
+        # 1. Full demo seed
+        res_full = client.post("/api/orders/mock-seed")
+        assert res_full.status_code == 200
+        data_full = res_full.json()
+        assert data_full["status"] == "success"
+        assert data_full["count"] == 6
+
+        # Verify seeded orders contain Bengali addresses
+        mirpur = isolated_order_store.get_by_id("ORD-MIRPUR-01")
+        assert mirpur is not None
+        assert "মিরপুর" in mirpur.recipient_address
+        assert mirpur.delivery_fee == 70.0
+
+        # 2. Single simulation seed
+        res_single = client.post("/api/orders/mock-seed?single=true")
+        assert res_single.status_code == 200
+        data_single = res_single.json()
+        assert data_single["status"] == "success"
+        assert "ORD-SIM-" in data_single["order"]["order_id"]
+        assert data_single["order"]["recipient_phone"].startswith("01")
+
+    def test_unhold_order_endpoint(self, client, isolated_order_store):
+        """Ensure POST /api/orders/{id}/unhold returns order to PENDING_CONFIRMATION."""
+        order = create_sample_order("ORD-UNHOLD-01", status=OrderStatus.ADMIN_HELD)
+        isolated_order_store.save(order)
+
+        res = client.post(f"/api/orders/{order.order_id}/unhold")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+        assert data["order"]["status"] == "PENDING_CONFIRMATION"
+
+        reloaded = isolated_order_store.get_by_id(order.order_id)
+        assert reloaded.status == OrderStatus.PENDING_CONFIRMATION
+
+    def test_order_invoice_download_endpoint(self, client, isolated_order_store):
+        """Ensure GET /api/orders/{id}/invoice generates and serves valid PDF."""
+        order = create_sample_order("ORD-INV-TEST", status=OrderStatus.PENDING_CONFIRMATION)
+        isolated_order_store.save(order)
+
+        res = client.get(f"/api/orders/{order.order_id}/invoice")
+        assert res.status_code == 200
+        assert res.headers.get("content-type") == "application/pdf"
+        assert res.content.startswith(b"%PDF")
+
+

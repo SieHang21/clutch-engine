@@ -289,3 +289,21 @@ class TestClutchEndToEndCustomerJourney:
         assert cfg.STEADFAST_BASE_URL.startswith("http")
         assert cfg.BRAND_NAME != ""
         assert cfg.REDIS_URL.startswith("redis://")
+
+    def test_root_welcome_route(self):
+        """Validate GET / returns friendly welcome payload with 200 OK."""
+        client = TestClient(app)
+        response = client.get("/")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["service"] == "Clutch Engine"
+        assert data["status"] == "online"
+        assert data["docs_url"] == "/docs"
+        assert data["version"] == "1.0.0"
+
+    def test_health_check_route(self):
+        """Validate GET /health returns status ok."""
+        client = TestClient(app)
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok", "service": "clutch-engine"}

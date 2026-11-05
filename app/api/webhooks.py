@@ -12,12 +12,14 @@ import os
 import logging
 from typing import Optional, Dict, Any
 
-from fastapi import APIRouter, Request, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Request, Header, HTTPException, Query, Response, status, Depends
 from fastapi.responses import PlainTextResponse
+from sqlmodel import Session
 
 from app.core.security import verify_meta_signature
 from app.services.session_buffer import default_session_buffer, SessionBuffer
 from app.models.order import Order, OrderItem, OrderStatus, DeliveryZone
+from app.db.session import get_db
 from app.services.order_store import get_order_store
 from app.services.customer_notifier import default_customer_notifier
 
@@ -102,11 +104,11 @@ async def verify_meta_webhook(
 # POST: Webhook Event Ingestion Handlers
 # -------------------------------------------------------------------------
 @router.post("")
-@router.post("/")
-@router.post("/webhooks")
+@router.post("/", include_in_schema=False)
 async def receive_meta_webhook(
     request: Request,
     x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256"),
+    db: Session = Depends(get_db),
 ):
     """
     Handle incoming Meta Webhook event notifications (POST).
@@ -232,7 +234,12 @@ async def receive_meta_webhook(
                             status=OrderStatus.PENDING_CONFIRMATION,
                         )
 
-                        get_order_store().save(order_obj)
+                        if db is not None:
+                            db.add(order_obj)
+                            db.commit()
+                            db.refresh(order_obj)
+                        else:
+                            get_order_store().save(order_obj)
                         created_order_id = order_obj.order_id
 
                         # Dispatch automated confirmation notification
